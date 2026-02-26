@@ -1,11 +1,11 @@
 # Riskframe
 
-A local-first Python application that treats personal finance like a trading book. Built with Streamlit, Riskframe provides risk analytics, liquidity monitoring, leverage tracking, and stress testing for personal financial positions.
+A Python application that treats personal finance like a trading book. Built with Streamlit, Riskframe provides risk analytics, liquidity monitoring, leverage tracking, and stress testing for personal financial positions.
 
 ## Overview
 
 Riskframe applies institutional risk management principles to personal finance, helping you:
-- Monitor liquidity and cash flow
+- **Liquidity runway** – Daily burn rate and runway (cash-only and liquid assets), with SAFE/WARN/CRITICAL status (≥180 / 90–179 / &lt;90 days)
 - Track leverage and exposure
 - Set and enforce risk limits
 - Run stress tests on your financial positions
@@ -75,7 +75,8 @@ pytest
 
 ## Development Status
 
-🚧 **Early Development** - This is currently a scaffold with placeholder metrics. Risk calculation logic is coming soon.
+- **Liquidity** – Implemented. `liquidity_runway(book)` returns daily burn, runway days (cash-only and liquid assets), and status from a `FinanceBook`.
+- **Leverage, limits, stress** – Placeholder modules; implementation planned.
 
 ## License
 
