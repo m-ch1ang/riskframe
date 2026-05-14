@@ -77,7 +77,8 @@ pytest
 
 - **Liquidity** – Implemented. `liquidity_runway(book)` returns daily burn, runway days (cash-only and liquid assets), and status from a `FinanceBook`.
 - **Leverage** – Implemented. `leverage_metrics(book)` on `src.risk.leverage` returns `LeverageResult` (`leverage_income_ratio`, `leverage_net_liquid`, `fixed_coverage_ratio`, `flags`). Ratios that are undefined return `None` and are described in `flags` (for example `income_zero`, `net_liquid_nonpositive`, `fixed_outflows_zero`). Covered by `tests/test_leverage.py`.
-- **Limits, stress** – Placeholder modules; implementation planned.
+- **Limits** – Implemented. `max_safe_spend_today(book, min_runway_days=42, use_cash_only=True)` returns `LimitsResult` with `min_runway_days`, `required_buffer`, `max_safe_spend`, and `basis` (`CASH_ONLY` or `LIQUID_ASSETS`). Reserves enough balance to cover `min_runway_days` of burn before allowing discretionary spend; when daily burn ≤ 0 the full available balance is spendable. Covered by `tests/test_limits.py`.
+- **Stress** – Placeholder module; implementation planned.
 
 ## License
 
