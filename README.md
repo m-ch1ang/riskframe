@@ -1,37 +1,90 @@
 # Riskframe
 
-A Python application that treats personal finance like a trading book. Built with Streamlit, Riskframe provides risk analytics, liquidity monitoring, leverage tracking, and stress testing for personal financial positions.
+A local-first personal risk desk that treats your finances like a trading book. Built with Streamlit and Plotly, Riskframe surfaces liquidity runway, leverage exposure, risk limits, and deterministic stress scenarios — using the same vocabulary as an institutional quant desk.
 
 ## Overview
 
-Riskframe applies institutional risk management principles to personal finance, helping you:
-- **Liquidity runway** – Daily burn rate and runway (cash-only and liquid assets), with SAFE/WARN/CRITICAL status (≥180 / 90–179 / &lt;90 days)
-- **Leverage metrics** – `leverage_metrics(book)` returns `LeverageResult` with outflows-to-income ratio, an institutional-style outflows-to-net-liquid-worth proxy (denominator clamped to avoid divide-by-zero), fixed-cost coverage (income over fixed outflows), and string flags for edge cases (zero income, non-positive net liquid worth, zero fixed outflows)
-- Set and enforce risk limits
-- Run stress tests on your financial positions
+Riskframe applies institutional risk management principles to personal finance:
+
+- **Liquidity runway** — Cash-only and liquid-asset runway in days, SAFE/WARN/CRITICAL status (≥180 / 90–179 / <90 days)
+- **Personal leverage** — Outflows-to-income ratio; >1× means you are spending more than you earn
+- **Risk limits** — Maximum safe discretionary spend enforced by a configurable liquidity buffer
+- **Purchase impact analysis** — Pre/post risk snapshot for any prospective purchase, including debt-financed overruns
+- **Stress testing** — Three deterministic scenarios (income drop, income delay, one-time shock) with PASS/FAIL verdict and runway comparison chart
+
+## Dashboard
+
+The Streamlit UI (`app.py`) is a single-page dashboard with a sidebar-driven `FinanceBook`:
+
+### Sidebar Inputs
+
+| Section | Fields |
+|---|---|
+| Balance Sheet | Cash, Investments, Total Debt |
+| Income Streams | Name, Monthly amount, Volatility (add/remove) |
+| Fixed Liabilities | Name, Monthly amount (add/remove) |
+| Variable Exposures | Name, Monthly average (add/remove) |
+| Risk Parameters | Liquidity Buffer (days, default 42) |
+
+### Main Dashboard Sections
+
+**Top-Row Metrics**
+
+| Metric | Description |
+|---|---|
+| Liquidity Runway | Cash-only days at current burn rate |
+| Personal Leverage | Total outflows ÷ total income |
+| Max Safe Spend Today | Discretionary headroom after reserving the liquidity buffer |
+| Monthly Net Cashflow | Income minus all outflows |
+
+A color-coded runway gauge (red/orange/yellow/green) sits below the metrics with a dashed threshold line at the configured buffer.
+
+**Purchase Impact Analysis**
+
+Enter any purchase amount to see:
+- Pre vs post runway, leverage ratio, and max safe spend in a comparison table
+- A risk-desk message (warning if buffer is breached or debt is taken on)
+- Grouped bar chart comparing pre vs post runway days
+
+**Stress Test**
+
+Choose a scenario and tune its parameter:
+- **Income Drop (%)** — all income streams scaled down by the chosen percentage
+- **Income Delay (months)** — zero income for N months, then normal burn resumes
+- **One-Time Shock ($)** — immediate lump-sum expense against current cash
+
+Each scenario shows a PASS/FAIL verdict against the configured buffer, runway days, and months to insolvency. An all-scenarios overview table and horizontal bar chart run all three scenarios simultaneously with default parameters for a quick risk overview.
 
 ## Tech Stack
 
 - **Python 3.11+**
-- **Streamlit** - Web interface
-- **pandas** - Data manipulation
-- **numpy** - Numerical computations
-- **plotly** - Interactive visualizations
-- **pydantic** - Data validation and settings
+- **Streamlit** — dashboard and sidebar state management
+- **Plotly** — interactive gauge and bar charts
+- **pandas** — tabular results
+- **pydantic** — typed schema for `FinanceBook` and all domain models
 
 ## Project Structure
 
 ```
 personal-risk-desk/
-├── app.py                 # Streamlit entry point
+├── app.py                 # Streamlit entry point (dashboard)
 ├── requirements.txt       # Python dependencies
 ├── src/
-│   ├── config/           # Configuration and defaults
-│   ├── domain/           # Domain models
-│   ├── risk/             # Risk calculation modules
-│   ├── charts/           # Visualization utilities
-│   └── utils/            # Helper functions
-└── tests/                # Test suite
+│   ├── config/
+│   │   ├── defaults.py   # Default FinanceBook and sample data
+│   │   └── schema.py     # Pydantic schemas (FinanceBook, IncomeStream, …)
+│   ├── domain/           # Domain models (Position, re-exports)
+│   ├── risk/
+│   │   ├── liquidity.py  # liquidity_runway() → LiquidityResult
+│   │   ├── leverage.py   # leverage_metrics() → LeverageResult
+│   │   ├── limits.py     # max_safe_spend_today() → LimitsResult
+│   │   ├── impact.py     # evaluate_purchase() → PurchaseImpactResult
+│   │   └── stress.py     # stress_income_drop/delay/shock → StressTestResult
+│   ├── charts/
+│   │   └── charts.py     # runway_gauge, purchase_comparison_chart, stress_comparison_chart
+│   └── utils/
+│       └── money.py      # format_currency()
+└── tests/                # Pytest test suite
 ```
 
 ## Quickstart
@@ -43,52 +96,68 @@ personal-risk-desk/
 
 ### Installation
 
-1. Clone the repository:
 ```bash
 git clone <your-repo-url>
 cd personal-risk-desk
-```
-
-2. Create and activate a virtual environment:
-```bash
 python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-```
-
-3. Install dependencies:
-```bash
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-4. Run the app:
+### Run the Dashboard
+
 ```bash
 streamlit run app.py
 ```
 
-The app will open in your default browser at `http://localhost:8501`
+Opens at `http://localhost:8501`.
 
-### Running Tests
+### Run Tests
 
 ```bash
 pytest
 ```
 
-## Development Status
+## Module Reference
 
-- **Liquidity** – Implemented. `liquidity_runway(book)` returns daily burn, runway days (cash-only and liquid assets), and status from a `FinanceBook`.
-- **Leverage** – Implemented. `leverage_metrics(book)` on `src.risk.leverage` returns `LeverageResult` (`leverage_income_ratio`, `leverage_net_liquid`, `fixed_coverage_ratio`, `flags`). Ratios that are undefined return `None` and are described in `flags` (for example `income_zero`, `net_liquid_nonpositive`, `fixed_outflows_zero`). Covered by `tests/test_leverage.py`.
-- **Limits** – Implemented. `max_safe_spend_today(book, min_runway_days=42, use_cash_only=True)` returns `LimitsResult` with `min_runway_days`, `required_buffer`, `max_safe_spend`, and `basis` (`CASH_ONLY` or `LIQUID_ASSETS`). Reserves enough balance to cover `min_runway_days` of burn before allowing discretionary spend; when daily burn ≤ 0 the full available balance is spendable. Covered by `tests/test_limits.py`.
-- **Purchase Impact** – Implemented. `evaluate_purchase(book, purchase_amount, min_runway_days=42)` in `src.risk.impact` returns `PurchaseImpactResult` with pre/post snapshots (`runway_days_cash_only`, `leverage_income_ratio`, `max_safe_spend_today`), deltas (`delta_runway_days`, `delta_leverage_income_ratio`, `delta_max_safe_spend`), and a human-readable risk-desk message. When `purchase_amount > cash`, the shortfall is modelled as new debt (leverage path): cash is set to zero and `debt` is increased by the overage. Covered by `tests/test_impact.py`.
-- **Stress** – Implemented. Three deterministic scenarios in `src/risk/stress.py`, each returning `StressTestResult` (`scenario_name`, `parameters`, `runway_days`, `months_to_insolvency`, `status`). **A) Income drop** (`stress_income_drop(book, pct_drop, buffer_days=90)`) scales all income streams down by `pct_drop` and recomputes daily burn and runway. **B) Income delay** (`stress_income_delay(book, delay_months, buffer_days=90)`) models zero income for `delay_months` months (Phase 1) then normal burn thereafter (Phase 2); insolvency during the delay is detected analytically. **C) One-time shock** (`stress_one_time_shock(book, shock_amount, buffer_days=90)`) deducts a lump-sum expense from cash immediately (excess beyond available cash zeroes cash without going negative) then evaluates runway at the normal burn rate. `status` is `PASS` when `runway_days >= buffer_days`, otherwise `FAIL`; non-positive burn produces `math.inf` runway. Covered by `tests/test_stress.py` (34 deterministic tests).
+### `src.risk.liquidity`
+
+`liquidity_runway(book) → LiquidityResult`
+
+Returns `daily_burn`, `runway_days_cash_only`, `runway_days_liquid_assets`, and `status` (`SAFE`/`WARN`/`CRITICAL`). Infinite runway when burn ≤ 0.
+
+### `src.risk.leverage`
+
+`leverage_metrics(book) → LeverageResult`
+
+Returns `leverage_income_ratio` (outflows/income, `None` if income is zero), `leverage_net_liquid` (outflows/net-liquid-worth, denominator clamped to 1e-9), `fixed_coverage_ratio` (income/fixed outflows), and `flags` list for edge cases.
+
+### `src.risk.limits`
+
+`max_safe_spend_today(book, min_runway_days=42, use_cash_only=True) → LimitsResult`
+
+Reserves `min_runway_days × daily_burn` as a liquidity buffer; the remainder is spendable. Returns `required_buffer`, `max_safe_spend`, and `basis`.
+
+### `src.risk.impact`
+
+`evaluate_purchase(book, purchase_amount, min_runway_days=42) → PurchaseImpactResult`
+
+Pre/post risk snapshots, deltas, and a human-readable risk message. When the purchase exceeds available cash, the shortfall is modelled as new debt (leverage path).
+
+### `src.risk.stress`
+
+| Function | Scenario |
+|---|---|
+| `stress_income_drop(book, pct_drop, buffer_days=90)` | All income scaled down by `pct_drop` |
+| `stress_income_delay(book, delay_months, buffer_days=90)` | Zero income for N months, normal burn resumes |
+| `stress_one_time_shock(book, shock_amount, buffer_days=90)` | Immediate lump-sum cash deduction |
+
+Each returns `StressTestResult` with `runway_days`, `months_to_insolvency`, and `status` (`PASS`/`FAIL` vs `buffer_days`).
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) file for details.
+MIT License — see [LICENSE](LICENSE) for details.
 
 ## Contributing
 
-This is a personal project, but suggestions and feedback are welcome!
-
----
-
-Happy building!
+This is a personal project, but suggestions and feedback are welcome.
